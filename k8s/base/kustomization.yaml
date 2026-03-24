@@ -1,0 +1,4 @@
+resources:
+  - namespace.yaml
+  - books-service.yaml
+  - ingress.yaml

@@ -1,0 +1,12 @@
+node_modules
+.env
+dist
+coverage
+npm-debug.log*
+.DS_Store
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk

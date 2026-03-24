@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: library-config
+  namespace: library-app
+data:
+  BOOKS_SERVICE_URL: http://books-service:3001
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: library
+

@@ -1,0 +1,7 @@
+services:
+  books-service:
+    build:
+      context: ./services/books-service
+    container_name: books-service
+    ports:
+      - "3001:3001"
