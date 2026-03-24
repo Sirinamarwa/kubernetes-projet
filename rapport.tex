@@ -1,0 +1,168 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+
+\title{Projet Microservices\\Service A : Gestion des livres}
+\author{Sirine}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Dans le cadre du projet de microservices, ma partie porte sur le premier service de l'application : \texttt{books-service}.
+Ce service a ete developpe en \textbf{JavaScript} avec \textbf{Node.js} et \textbf{Express}.
+
+L'objectif de cette partie etait de realiser la progression suivante :
+
+\begin{itemize}[leftmargin=*]
+  \item developper un premier microservice en local ;
+  \item conteneuriser ce service avec Docker ;
+  \item publier son image sur Docker Hub ;
+  \item deployer ce service sur Kubernetes ;
+  \item ajouter une gateway locale avec Ingress.
+\end{itemize}
+
+\section{Presentation du service}
+
+\texttt{books-service} est un microservice REST qui permet de gerer les livres d'une bibliotheque.
+
+Fonctionnalites principales :
+
+\begin{itemize}[leftmargin=*]
+  \item ajouter un livre ;
+  \item lister les livres ;
+  \item consulter un livre par identifiant ;
+  \item supprimer un livre.
+\end{itemize}
+
+\subsection{Routes exposees}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{3.5cm} p{9cm}}
+\toprule
+Route & Description \\
+\midrule
+GET /books & Lister tous les livres \\
+GET /books/:id & Recuperer un livre par identifiant \\
+POST /books & Ajouter un livre \\
+DELETE /books/:id & Supprimer un livre \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Etapes realisees}
+
+\subsection{1. Service en local}
+
+Le service a d'abord ete execute localement avec :
+
+\begin{verbatim}
+npm start
+\end{verbatim}
+
+La verification a ete realisee avec :
+
+\begin{verbatim}
+curl http://localhost:3001/books
+\end{verbatim}
+
+\subsection{2. Docker}
+
+Un \texttt{Dockerfile} a ete cree pour conteneuriser \texttt{books-service}.
+
+\begin{verbatim}
+docker build -t books-service-local ./services/books-service
+docker run --rm -p 3001:3001 books-service-local
+\end{verbatim}
+
+\subsection{3. Docker Hub}
+
+L'image du service a ensuite ete publiee sur Docker Hub avec le compte :
+
+\begin{verbatim}
+sirinamarwa/books-service:latest
+\end{verbatim}
+
+Commandes utilisees :
+
+\begin{verbatim}
+docker tag books-service-local sirinamarwa/books-service:latest
+docker push sirinamarwa/books-service:latest
+\end{verbatim}
+
+\subsection{4. Kubernetes}
+
+Le service a ete deploye dans Minikube avec :
+
+\begin{verbatim}
+kubectl apply -f k8s/base/namespace.yaml
+kubectl apply -f k8s/base/books-service.yaml
+\end{verbatim}
+
+Verification :
+
+\begin{verbatim}
+kubectl get deployments -n library-app
+kubectl get pods -n library-app
+kubectl get svc -n library-app
+\end{verbatim}
+
+Le pod \texttt{books-service} a bien ete observe dans l'etat \texttt{Running}.
+
+\subsection{5. Gateway locale}
+
+Une gateway locale a ete ajoutee avec un \texttt{Ingress} :
+
+\begin{verbatim}
+kubectl apply -f k8s/base/ingress.yaml
+kubectl get ingress -n library-app
+\end{verbatim}
+
+La verification du routage a ete realisee avec :
+
+\begin{verbatim}
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8081:80
+curl -H "Host: library.local" http://localhost:8081/books
+\end{verbatim}
+
+\section{Etat actuel}
+
+\begin{itemize}[leftmargin=*]
+  \item service local valide ;
+  \item Docker valide ;
+  \item Docker Hub valide ;
+  \item Kubernetes valide ;
+  \item Ingress valide.
+\end{itemize}
+
+\section{Captures a inserer}
+
+\begin{itemize}[leftmargin=*]
+  \item lancement local du service ;
+  \item reponse de \texttt{curl http://localhost:3001/books} ;
+  \item construction de l'image Docker ;
+  \item publication sur Docker Hub ;
+  \item \texttt{kubectl cluster-info} ;
+  \item \texttt{kubectl get nodes} ;
+  \item \texttt{kubectl get pods -n library-app} ;
+  \item \texttt{kubectl get svc -n library-app} ;
+  \item \texttt{kubectl get ingress -n library-app} ;
+  \item test Ingress via \texttt{curl -H "Host: library.local" http://localhost:8081/books}.
+\end{itemize}
+
+\section{Conclusion}
+
+Cette premiere partie du projet valide toute la chaine technique pour un microservice :
+developpement local, conteneurisation, publication d'image, deploiement Kubernetes et exposition via une gateway locale.
+
+\end{document}
