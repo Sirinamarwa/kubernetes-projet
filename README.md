@@ -12,6 +12,10 @@ Fonctionnalites :
 - lister les livres
 - recuperer un livre par identifiant
 - modifier un livre
+- filtrer les livres disponibles
+- rechercher un livre par titre ou auteur
+- emprunter un livre
+- enregistrer le retour d'un livre
 - supprimer un livre
 
 Routes principales :
@@ -20,7 +24,15 @@ Routes principales :
 - `GET /books/:id`
 - `POST /books`
 - `PUT /books/:id`
+- `PATCH /books/:id/availability`
+- `PATCH /books/:id/borrow`
+- `PATCH /books/:id/return`
 - `DELETE /books/:id`
+
+Le service retourne aussi un champ metier `status` :
+
+- `AVAILABLE`
+- `BORROWED`
 
 ## Local
 
@@ -35,9 +47,19 @@ Verifier :
 
 ```bash
 curl http://localhost:3001/books
+curl http://localhost:3001/books/book-1
 ```
 
 Le service utilise maintenant PostgreSQL. Pour un lancement local complet, il est donc recommande d'utiliser Docker Compose.
+
+Exemples de tests metier :
+
+```bash
+curl "http://localhost:3001/books?available=true"
+curl "http://localhost:3001/books?search=clean"
+curl -X PATCH http://localhost:3001/books/book-1/borrow
+curl -X PATCH http://localhost:3001/books/book-1/return
+```
 
 ## Docker
 
@@ -102,7 +124,14 @@ Puis dans un autre terminal :
 ```bash
 curl http://localhost:3010/books
 curl http://localhost:3010/books/book-1
+curl -X PATCH http://localhost:3010/books/book-1/borrow
 ```
+
+En cas de livre deja emprunte, l'API renvoie :
+
+- code HTTP `409`
+- `code: BOOK_UNAVAILABLE`
+- message `Livre deja prete ou non disponible.`
 
 ## Repartition actuelle
 

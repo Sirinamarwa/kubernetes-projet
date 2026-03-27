@@ -44,6 +44,9 @@ Fonctionnalites principales :
   \item lister les livres ;
   \item consulter un livre par identifiant ;
   \item modifier un livre ;
+  \item filtrer les livres disponibles ;
+  \item rechercher un livre par titre ou auteur ;
+  \item enregistrer l'emprunt et le retour d'un livre ;
   \item supprimer un livre.
 \end{itemize}
 
@@ -58,6 +61,9 @@ GET /books & Lister tous les livres \\
 GET /books/:id & Recuperer un livre par identifiant \\
 POST /books & Ajouter un livre \\
 PUT /books/:id & Modifier un livre \\
+PATCH /books/:id/availability & Modifier la disponibilite d'un livre \\
+PATCH /books/:id/borrow & Marquer un livre comme emprunte \\
+PATCH /books/:id/return & Marquer un livre comme retourne \\
 DELETE /books/:id & Supprimer un livre \\
 \bottomrule
 \end{tabular}
@@ -76,6 +82,9 @@ CREATE TABLE books (
   available BOOLEAN DEFAULT true
 );
 \end{verbatim}
+
+Le service expose egalement un etat metier calcule a partir de \texttt{available} :
+\texttt{AVAILABLE} ou \texttt{BORROWED}.
 
 \section{Etapes realisees}
 
@@ -163,12 +172,20 @@ Une fois PostgreSQL integre, nous avons valide les principales routes du service
 \begin{verbatim}
 curl http://localhost:3001/books
 curl http://localhost:3001/books/book-1
+curl "http://localhost:3001/books?available=true"
+curl "http://localhost:3001/books?search=clean"
 curl -X POST http://localhost:3001/books \
   -H "Content-Type: application/json" \
   -d '{"title":"Refactoring","author":"Martin Fowler","available":true}'
+curl -X PATCH http://localhost:3001/books/book-1/borrow
+curl -X PATCH http://localhost:3001/books/book-1/return
 \end{verbatim}
 
 Ces tests ont confirme que les livres etaient bien lus et ecrits dans la base de donnees.
+Ils ont egalement valide la gestion de disponibilite d'un livre.
+
+En cas de tentative d'emprunt d'un livre deja prete, l'API renvoie un code \texttt{409}
+avec le message \texttt{Livre deja prete ou non disponible.}
 
 \section{Etat actuel}
 
@@ -179,7 +196,8 @@ Ces tests ont confirme que les livres etaient bien lus et ecrits dans la base de
   \item Kubernetes valide ;
   \item Ingress valide ;
   \item PostgreSQL valide ;
-  \item CRUD principal valide.
+  \item CRUD principal valide ;
+  \item verification de l'etat \texttt{AVAILABLE/BORROWED} validee.
 \end{itemize}
 
 \section{Captures a inserer}
@@ -197,12 +215,14 @@ Ces tests ont confirme que les livres etaient bien lus et ecrits dans la base de
   \item \texttt{kubectl get ingress -n library-app} ;
   \item test Ingress via \texttt{curl -H "Host: library.local" http://localhost:8081/books} ;
   \item \texttt{curl http://localhost:3001/books/book-1} ;
-  \item \texttt{POST /books} apres integration PostgreSQL.
+  \item \texttt{POST /books} apres integration PostgreSQL ;
+  \item \texttt{PATCH /books/book-1/borrow} ;
+  \item message d'erreur \texttt{Livre deja prete ou non disponible.}
 \end{itemize}
 
 \section{Conclusion}
 
 Cette premiere partie du projet valide toute la chaine technique pour un microservice :
-developpement local, conteneurisation, publication d'image, deploiement Kubernetes, exposition via une gateway locale et integration d'une base PostgreSQL.
+developpement local, conteneurisation, publication d'image, deploiement Kubernetes, exposition via une gateway locale, integration d'une base PostgreSQL et gestion de disponibilite d'un livre.
 
 \end{document}
