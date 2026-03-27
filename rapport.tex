@@ -29,7 +29,8 @@ L'objectif de cette partie etait de realiser la progression suivante :
   \item conteneuriser ce service avec Docker ;
   \item publier son image sur Docker Hub ;
   \item deployer ce service sur Kubernetes ;
-  \item ajouter une gateway locale avec Ingress.
+  \item ajouter une gateway locale avec Ingress ;
+  \item connecter le service a une base PostgreSQL.
 \end{itemize}
 
 \section{Presentation du service}
@@ -42,6 +43,7 @@ Fonctionnalites principales :
   \item ajouter un livre ;
   \item lister les livres ;
   \item consulter un livre par identifiant ;
+  \item modifier un livre ;
   \item supprimer un livre.
 \end{itemize}
 
@@ -55,10 +57,25 @@ Route & Description \\
 GET /books & Lister tous les livres \\
 GET /books/:id & Recuperer un livre par identifiant \\
 POST /books & Ajouter un livre \\
+PUT /books/:id & Modifier un livre \\
 DELETE /books/:id & Supprimer un livre \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\subsection{Base de donnees}
+
+Le service s'appuie maintenant sur une base \textbf{PostgreSQL}.
+La table utilisee est la suivante :
+
+\begin{verbatim}
+CREATE TABLE books (
+  id VARCHAR(100) PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  author VARCHAR(255),
+  available BOOLEAN DEFAULT true
+);
+\end{verbatim}
 
 \section{Etapes realisees}
 
@@ -82,8 +99,10 @@ Un \texttt{Dockerfile} a ete cree pour conteneuriser \texttt{books-service}.
 
 \begin{verbatim}
 docker build -t books-service-local ./services/books-service
-docker run --rm -p 3001:3001 books-service-local
+docker compose up --build
 \end{verbatim}
+
+Le choix de Docker Compose permet de lancer simultanement le service et PostgreSQL.
 
 \subsection{3. Docker Hub}
 
@@ -102,11 +121,11 @@ docker push sirinamarwa/books-service:latest
 
 \subsection{4. Kubernetes}
 
-Le service a ete deploye dans Minikube avec :
+Le service a ete deploye dans Minikube avec PostgreSQL en \texttt{StatefulSet}.
+Les ressources appliquees sont :
 
 \begin{verbatim}
-kubectl apply -f k8s/base/namespace.yaml
-kubectl apply -f k8s/base/books-service.yaml
+kubectl apply -k k8s/base
 \end{verbatim}
 
 Verification :
@@ -115,9 +134,11 @@ Verification :
 kubectl get deployments -n library-app
 kubectl get pods -n library-app
 kubectl get svc -n library-app
+kubectl get pvc -n library-app
 \end{verbatim}
 
-Le pod \texttt{books-service} a bien ete observe dans l'etat \texttt{Running}.
+Le pod \texttt{books-service} et le pod \texttt{books-postgres-0} ont bien ete observes dans l'etat \texttt{Running}.
+Le volume persistant PostgreSQL a egalement ete cree et lie avec succes.
 
 \subsection{5. Gateway locale}
 
@@ -135,6 +156,20 @@ kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8081:80
 curl -H "Host: library.local" http://localhost:8081/books
 \end{verbatim}
 
+\subsection{6. Verification fonctionnelle avec PostgreSQL}
+
+Une fois PostgreSQL integre, nous avons valide les principales routes du service :
+
+\begin{verbatim}
+curl http://localhost:3001/books
+curl http://localhost:3001/books/book-1
+curl -X POST http://localhost:3001/books \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Refactoring","author":"Martin Fowler","available":true}'
+\end{verbatim}
+
+Ces tests ont confirme que les livres etaient bien lus et ecrits dans la base de donnees.
+
 \section{Etat actuel}
 
 \begin{itemize}[leftmargin=*]
@@ -142,7 +177,9 @@ curl -H "Host: library.local" http://localhost:8081/books
   \item Docker valide ;
   \item Docker Hub valide ;
   \item Kubernetes valide ;
-  \item Ingress valide.
+  \item Ingress valide ;
+  \item PostgreSQL valide ;
+  \item CRUD principal valide.
 \end{itemize}
 
 \section{Captures a inserer}
@@ -156,13 +193,16 @@ curl -H "Host: library.local" http://localhost:8081/books
   \item \texttt{kubectl get nodes} ;
   \item \texttt{kubectl get pods -n library-app} ;
   \item \texttt{kubectl get svc -n library-app} ;
+  \item \texttt{kubectl get pvc -n library-app} ;
   \item \texttt{kubectl get ingress -n library-app} ;
-  \item test Ingress via \texttt{curl -H "Host: library.local" http://localhost:8081/books}.
+  \item test Ingress via \texttt{curl -H "Host: library.local" http://localhost:8081/books} ;
+  \item \texttt{curl http://localhost:3001/books/book-1} ;
+  \item \texttt{POST /books} apres integration PostgreSQL.
 \end{itemize}
 
 \section{Conclusion}
 
 Cette premiere partie du projet valide toute la chaine technique pour un microservice :
-developpement local, conteneurisation, publication d'image, deploiement Kubernetes et exposition via une gateway locale.
+developpement local, conteneurisation, publication d'image, deploiement Kubernetes, exposition via une gateway locale et integration d'une base PostgreSQL.
 
 \end{document}

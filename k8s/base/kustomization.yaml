@@ -1,4 +1,7 @@
 resources:
   - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - postgres.yaml
   - books-service.yaml
   - ingress.yaml

@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const cors = require('cors');
+const { pool, initializeDatabase } = require('./db');
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
@@ -8,43 +9,44 @@ const port = Number(process.env.PORT || 3001);
 app.use(cors());
 app.use(express.json());
 
-const books = [
-  {
-    id: 'book-1',
-    title: 'Clean Code',
-    author: 'Robert C. Martin',
-    publishedYear: 2008,
-    available: true
-  },
-  {
-    id: 'book-2',
-    title: 'Designing Data-Intensive Applications',
-    author: 'Martin Kleppmann',
-    publishedYear: 2017,
-    available: true
-  }
-];
-
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'books-service' });
 });
 
-app.get('/books', (_req, res) => {
-  res.json(books);
-});
+app.get('/books', async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, title, author, available
+      FROM books
+      ORDER BY title ASC
+    `);
 
-app.get('/books/:id', (req, res) => {
-  const book = books.find((item) => item.id === req.params.id);
-
-  if (!book) {
-    return res.status(404).json({ message: 'Livre introuvable.' });
+    return res.json(result.rows);
+  } catch (error) {
+    return res.status(500).json({ message: 'Impossible de recuperer les livres.', error: error.message });
   }
-
-  return res.json(book);
 });
 
-app.post('/books', (req, res) => {
-  const { title, author, publishedYear } = req.body;
+app.get('/books/:id', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, title, author, available
+      FROM books
+      WHERE id = $1
+    `, [req.params.id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Livre introuvable.' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    return res.status(500).json({ message: 'Impossible de recuperer le livre.', error: error.message });
+  }
+});
+
+app.post('/books', async (req, res) => {
+  const { title, author, available } = req.body;
 
   if (!title || !author) {
     return res.status(400).json({ message: 'Les champs title et author sont obligatoires.' });
@@ -54,27 +56,70 @@ app.post('/books', (req, res) => {
     id: `book-${crypto.randomUUID()}`,
     title,
     author,
-    publishedYear: publishedYear || null,
-    available: true
+    available: available ?? true
   };
 
-  books.push(book);
+  try {
+    await pool.query(`
+      INSERT INTO books (id, title, author, available)
+      VALUES ($1, $2, $3, $4)
+    `, [book.id, book.title, book.author, book.available]);
 
-  return res.status(201).json(book);
+    return res.status(201).json(book);
+  } catch (error) {
+    return res.status(500).json({ message: 'Impossible de creer le livre.', error: error.message });
+  }
 });
 
-app.delete('/books/:id', (req, res) => {
-  const index = books.findIndex((item) => item.id === req.params.id);
+app.put('/books/:id', async (req, res) => {
+  const { title, author, available } = req.body;
 
-  if (index === -1) {
-    return res.status(404).json({ message: 'Livre introuvable.' });
+  if (!title || !author) {
+    return res.status(400).json({ message: 'Les champs title et author sont obligatoires.' });
   }
 
-  books.splice(index, 1);
+  try {
+    const result = await pool.query(`
+      UPDATE books
+      SET title = $2, author = $3, available = $4
+      WHERE id = $1
+      RETURNING id, title, author, available
+    `, [req.params.id, title, author, available ?? true]);
 
-  return res.status(204).send();
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Livre introuvable.' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    return res.status(500).json({ message: 'Impossible de modifier le livre.', error: error.message });
+  }
 });
 
-app.listen(port, () => {
-  console.log(`books-service listening on port ${port}`);
+app.delete('/books/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM books WHERE id = $1', [req.params.id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Livre introuvable.' });
+    }
+
+    return res.status(204).send();
+  } catch (error) {
+    return res.status(500).json({ message: 'Impossible de supprimer le livre.', error: error.message });
+  }
 });
+
+async function start() {
+  try {
+    await initializeDatabase();
+    app.listen(port, () => {
+      console.log(`books-service listening on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to initialize books-service:', error);
+    process.exit(1);
+  }
+}
+
+start();
