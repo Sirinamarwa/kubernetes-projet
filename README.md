@@ -133,6 +133,38 @@ En cas de livre deja emprunte, l'API renvoie :
 - `code: BOOK_UNAVAILABLE`
 - message `Livre deja prete ou non disponible.`
 
+## Frontend
+
+Un frontend React/Vite est maintenant disponible dans `frontend/`.
+
+Fonctionnalites UI actuelles :
+
+- affichage du catalogue
+- badge `Disponible` / `Deja prete`
+- ajout d'un livre
+- bouton `Emprunter`
+- bouton `Retourner`
+- zone reservee pour le module `loans-service` de Chaimaa
+
+Lancement local :
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Puis ouvrir :
+
+```bash
+http://localhost:5173
+```
+
+Variables optionnelles :
+
+- `VITE_BOOKS_API_URL=http://localhost:3001`
+- `VITE_LOANS_API_URL=http://localhost:3002`
+
 ## Repartition actuelle
 
 - Sirine : `books-service`, PostgreSQL, Docker, Docker Hub, Kubernetes, Ingress
