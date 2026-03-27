@@ -24,12 +24,11 @@ Routes principales :
 
 ## Local
 
-Lancer le service :
+Le service depend maintenant de PostgreSQL.
+Pour un lancement complet et simple, utilise Docker Compose :
 
 ```bash
-cd services/books-service
-npm install
-npm start
+docker compose up --build
 ```
 
 Verifier :
@@ -48,23 +47,11 @@ Construire l'image :
 docker build -t books-service-local ./services/books-service
 ```
 
-Lancer le conteneur :
+Mettre a jour Docker Hub :
 
 ```bash
-docker run --rm -p 3001:3001 books-service-local
-```
-
-Ou lancer la pile locale avec PostgreSQL :
-
-```bash
-docker compose up --build
-```
-
-Verifier :
-
-```bash
-curl http://localhost:3001/books
-curl http://localhost:3001/books/book-1
+docker tag books-service-local sirinamarwa/books-service:latest
+docker push sirinamarwa/books-service:latest
 ```
 
 ## Docker Hub
@@ -76,11 +63,6 @@ sirinamarwa/books-service:latest
 ```
 
 Publier :
-
-```bash
-docker tag books-service-local sirinamarwa/books-service:latest
-docker push sirinamarwa/books-service:latest
-```
 
 ## Kubernetes
 

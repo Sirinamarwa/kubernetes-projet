@@ -81,10 +81,11 @@ CREATE TABLE books (
 
 \subsection{1. Service en local}
 
-Le service a d'abord ete execute localement avec :
+Le service depend maintenant de PostgreSQL.
+Pour le lancer localement de maniere simple, nous avons utilise Docker Compose :
 
 \begin{verbatim}
-npm start
+docker compose up --build
 \end{verbatim}
 
 La verification a ete realisee avec :
@@ -99,10 +100,9 @@ Un \texttt{Dockerfile} a ete cree pour conteneuriser \texttt{books-service}.
 
 \begin{verbatim}
 docker build -t books-service-local ./services/books-service
-docker compose up --build
 \end{verbatim}
 
-Le choix de Docker Compose permet de lancer simultanement le service et PostgreSQL.
+Le lancement de l'ensemble service + base se fait ensuite avec Docker Compose.
 
 \subsection{3. Docker Hub}
 
