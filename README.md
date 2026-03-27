@@ -165,8 +165,98 @@ Variables optionnelles :
 - `VITE_BOOKS_API_URL=http://localhost:3001`
 - `VITE_LOANS_API_URL=http://localhost:3002`
 
-## Repartition actuelle
+## Service B — user-loans-service (Chaimaa)
 
-- Sirine : `books-service`, PostgreSQL, Docker, Docker Hub, Kubernetes, Ingress
-- Chaimaa : `loans-service`, PostgreSQL, communication entre services
-- Integration complete de l'application : sera faite ensuite
+`user-loans-service` est un microservice REST en Node.js pour la gestion des emprunts.
+
+Fonctionnalites :
+
+- creer un emprunt (avec verification du livre dans `books-service`)
+- lister tous les emprunts
+- lister les emprunts d'un utilisateur
+- retourner un livre
+- supprimer un emprunt
+- mise a jour automatique de la disponibilite du livre dans `books-service`
+
+Routes principales :
+
+- `GET /loans`
+- `GET /loans/user/:userId`
+- `POST /loans`
+- `PUT /loans/:id/return`
+- `DELETE /loans/:id`
+- `GET /health`
+
+### Kubernetes
+
+Le dossier `user-loans-service/k8s` contient :
+
+- un `Deployment` pour le service Node.js
+- un `StatefulSet` PostgreSQL avec PVC
+- un `Service` ClusterIP
+- un `Ingress` nginx (expose `/loans` sur `http://127.0.0.1`)
+- des `Secrets` pour les credentials PostgreSQL
+- des regles `RBAC` (ServiceAccount, Role, RoleBinding)
+
+Appliquer :
+
+```bash
+kubectl apply -f user-loans-service/k8s/
+```
+
+Verifier :
+
+```bash
+kubectl get pods
+kubectl get svc
+kubectl get ingress
+```
+
+### Communication inter-services
+
+Le service appelle `books-service` pour :
+
+- verifier qu'un livre existe avant de creer un emprunt (`GET /books/:id`)
+- marquer le livre comme emprunte (`PATCH /books/:id/borrow`)
+- marquer le livre comme disponible au retour (`PATCH /books/:id/return`)
+
+Variable d'environnement :
+
+```
+BOOK_CATALOG_URL=http://books-service.library-app.svc.cluster.local:3001
+```
+
+### Docker Hub
+
+```bash
+chaimaaaa/user-loans-service:latest
+```
+
+### Test de l'API
+
+```bash
+# Creer un emprunt
+curl -X POST http://127.0.0.1/loans \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"u1","book_id":"book-1"}'
+
+# Lister les emprunts
+curl http://127.0.0.1/loans
+
+# Retourner un livre
+curl -X PUT http://127.0.0.1/loans/1/return
+```
+
+## Repartition finale
+
+| Responsabilite | Sirine | Chaimaa |
+|----------------|--------|---------|
+| Service Livres (Book-Catalog) | ✅ | |
+| Service Emprunts (User-Loans) | | ✅ |
+| PostgreSQL + PVC | ✅ | ✅ |
+| Docker + Docker Hub | ✅ | ✅ |
+| Kubernetes Deployment | ✅ | ✅ |
+| Ingress / Routage | ✅ | ✅ |
+| RBAC + Secrets | | ✅ |
+| Communication inter-services | | ✅ |
+| Frontend React | ✅ | |
