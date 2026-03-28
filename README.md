@@ -1,6 +1,16 @@
-# Gestion de Bibliotheque
+# Systeme de Gestion de Bibliotheque — Microservices
 
-Etat actuel du depot : partie de Sirine centree sur `books-service`.
+Application distribuee de gestion de bibliotheque developpee en binome (Sirine & Chaimaa).
+
+Architecture basee sur deux microservices independants communicant via REST, conteneurises avec Docker et orchestres sous Kubernetes (Minikube).
+
+| | Service A — Books | Service B — Loans |
+|--|--|--|
+| Auteure | Sirine | Chaimaa |
+| Langage | Node.js | Node.js |
+| Base de donnees | PostgreSQL | PostgreSQL |
+| Port interne | 3001 | 3000 |
+| Namespace K8s | `library-app` | `default` |
 
 ## Service A
 
@@ -167,41 +177,83 @@ Variables optionnelles :
 
 ## Service B — user-loans-service (Chaimaa)
 
-`user-loans-service` est un microservice REST en Node.js pour la gestion des emprunts.
+`user-loans-service` est un microservice REST en Node.js qui gere les emprunts de livres.
+Il communique avec `books-service` pour verifier la disponibilite des livres et synchroniser leur statut.
 
-Fonctionnalites :
+### Fonctionnalites
 
-- creer un emprunt (avec verification du livre dans `books-service`)
+- creer un emprunt (verifie que le livre existe et est disponible via `books-service`)
+- refuser un emprunt si le livre est deja emprunte (HTTP 409)
 - lister tous les emprunts
-- lister les emprunts d'un utilisateur
-- retourner un livre
+- lister les emprunts d'un utilisateur specifique
+- retourner un livre (met a jour la disponibilite dans `books-service`)
 - supprimer un emprunt
-- mise a jour automatique de la disponibilite du livre dans `books-service`
+- health check (`GET /health`)
 
-Routes principales :
+### Routes
 
-- `GET /loans`
-- `GET /loans/user/:userId`
-- `POST /loans`
-- `PUT /loans/:id/return`
-- `DELETE /loans/:id`
-- `GET /health`
+| Methode | Route | Description |
+|---------|-------|-------------|
+| GET | `/loans` | Lister tous les emprunts |
+| GET | `/loans/user/:userId` | Emprunts d'un utilisateur |
+| POST | `/loans` | Creer un emprunt |
+| PUT | `/loans/:id/return` | Retourner un livre |
+| DELETE | `/loans/:id` | Supprimer un emprunt |
+| GET | `/health` | Health check |
+
+### Communication inter-services
+
+Lors de chaque emprunt, le service appelle `books-service` :
+
+1. `GET /books/:id` — verifie que le livre existe
+2. `PATCH /books/:id/borrow` — marque le livre comme emprunte
+3. `PATCH /books/:id/return` — marque le livre comme disponible au retour
+
+Variable d'environnement :
+
+```
+BOOK_CATALOG_URL=http://books-service.library-app.svc.cluster.local:3001
+```
+
+### Securite (RBAC + Secrets)
+
+- `ServiceAccount` dedie : `loans-service-account`
+- `Role` et `RoleBinding` pour restreindre les acces au cluster
+- Credentials PostgreSQL stockes dans des `Kubernetes Secrets` (jamais en clair dans les YAML)
+
+### Base de donnees
+
+PostgreSQL deploye via `StatefulSet` avec `PersistentVolumeClaim` pour garantir la persistance des donnees apres redemarrage des pods.
+
+Schema de la table `loans` :
+
+```sql
+CREATE TABLE loans (
+  id          SERIAL PRIMARY KEY,
+  user_id     VARCHAR(100) NOT NULL,
+  book_id     VARCHAR(100) NOT NULL,
+  loan_date   TIMESTAMP DEFAULT NOW(),
+  return_date TIMESTAMP,
+  status      VARCHAR(20) DEFAULT 'active'
+);
+```
 
 ### Kubernetes
 
-Le dossier `user-loans-service/k8s` contient :
+Le dossier `k8s/loans/` contient :
 
-- un `Deployment` pour le service Node.js
-- un `StatefulSet` PostgreSQL avec PVC
-- un `Service` ClusterIP
-- un `Ingress` nginx (expose `/loans` sur `http://127.0.0.1`)
-- des `Secrets` pour les credentials PostgreSQL
-- des regles `RBAC` (ServiceAccount, Role, RoleBinding)
+- `deployment.yaml` — Deployment du service Node.js
+- `statefulset-postgres.yaml` — StatefulSet PostgreSQL
+- `pvc.yaml` — PersistentVolumeClaim pour la persistance
+- `service.yaml` — Service ClusterIP
+- `ingress.yaml` — Ingress nginx (expose `/loans` sur `http://127.0.0.1`)
+- `secret.yaml` — Secrets PostgreSQL
+- `rbac.yaml` — ServiceAccount, Role, RoleBinding
 
 Appliquer :
 
 ```bash
-kubectl apply -f user-loans-service/k8s/
+kubectl apply -f k8s/loans/
 ```
 
 Verifier :
@@ -210,20 +262,8 @@ Verifier :
 kubectl get pods
 kubectl get svc
 kubectl get ingress
-```
-
-### Communication inter-services
-
-Le service appelle `books-service` pour :
-
-- verifier qu'un livre existe avant de creer un emprunt (`GET /books/:id`)
-- marquer le livre comme emprunte (`PATCH /books/:id/borrow`)
-- marquer le livre comme disponible au retour (`PATCH /books/:id/return`)
-
-Variable d'environnement :
-
-```
-BOOK_CATALOG_URL=http://books-service.library-app.svc.cluster.local:3001
+kubectl get pvc
+kubectl get secrets
 ```
 
 ### Docker Hub
@@ -232,7 +272,16 @@ BOOK_CATALOG_URL=http://books-service.library-app.svc.cluster.local:3001
 chaimaaaa/user-loans-service:latest
 ```
 
-### Test de l'API
+Construire et publier :
+
+```bash
+docker build -t chaimaaaa/user-loans-service:latest ./services/loans-service
+docker push chaimaaaa/user-loans-service:latest
+```
+
+### Tests de l'API
+
+Prerequis : `minikube tunnel` actif dans un terminal separe.
 
 ```bash
 # Creer un emprunt
@@ -240,12 +289,25 @@ curl -X POST http://127.0.0.1/loans \
   -H "Content-Type: application/json" \
   -d '{"user_id":"u1","book_id":"book-1"}'
 
-# Lister les emprunts
+# Lister tous les emprunts
 curl http://127.0.0.1/loans
+
+# Emprunts d'un utilisateur
+curl http://127.0.0.1/loans/user/u1
 
 # Retourner un livre
 curl -X PUT http://127.0.0.1/loans/1/return
+
+# Supprimer un emprunt
+curl -X DELETE http://127.0.0.1/loans/1
 ```
+
+Reponses metier :
+
+- `201` — emprunt cree avec succes
+- `404` — livre introuvable dans le catalogue
+- `409` — livre deja emprunte
+- `500` — erreur interne
 
 ## Repartition finale
 
