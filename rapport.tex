@@ -5,12 +5,11 @@
 \usepackage[a4paper,margin=2.5cm]{geometry}
 \usepackage{enumitem}
 \usepackage{hyperref}
-\usepackage{xcolor}
 \usepackage{array}
 \usepackage{booktabs}
 
-\title{Projet Microservices\\Service A : Gestion des livres}
-\author{Sirine}
+\title{Projet Microservices de Bibliotheque}
+\author{Sirine \and Chaimaa}
 \date{\today}
 
 \begin{document}
@@ -19,60 +18,124 @@
 
 \section{Introduction}
 
-Dans le cadre du projet de microservices, ma partie porte sur le premier service de l'application : \texttt{books-service}.
-Ce service a ete developpe en \textbf{JavaScript} avec \textbf{Node.js} et \textbf{Express}.
+Ce projet consiste a realiser une application de gestion de bibliotheque selon une architecture microservices.
+L'application finale repose sur deux services independants, une interface web React, Docker, Docker Hub, PostgreSQL et Kubernetes.
 
-L'objectif de cette partie etait de realiser la progression suivante :
-
-\begin{itemize}[leftmargin=*]
-  \item developper un premier microservice en local ;
-  \item conteneuriser ce service avec Docker ;
-  \item publier son image sur Docker Hub ;
-  \item deployer ce service sur Kubernetes ;
-  \item ajouter une gateway locale avec Ingress ;
-  \item connecter le service a une base PostgreSQL.
-\end{itemize}
-
-\section{Presentation du service}
-
-\texttt{books-service} est un microservice REST qui permet de gerer les livres d'une bibliotheque.
-
-Fonctionnalites principales :
+Objectifs principaux :
 
 \begin{itemize}[leftmargin=*]
-  \item ajouter un livre ;
-  \item lister les livres ;
-  \item consulter un livre par identifiant ;
-  \item modifier un livre ;
-  \item filtrer les livres disponibles ;
-  \item rechercher un livre par titre ou auteur ;
-  \item enregistrer l'emprunt et le retour d'un livre ;
-  \item supprimer un livre.
+  \item separer le domaine en deux microservices coherents ;
+  \item mettre en place une communication REST entre services ;
+  \item persister les donnees avec PostgreSQL ;
+  \item conteneuriser chaque service ;
+  \item publier les images sur Docker Hub ;
+  \item deployer l'ensemble sur Kubernetes ;
+  \item proposer une interface web de demonstration.
 \end{itemize}
 
-\subsection{Routes exposees}
+\section{Architecture generale}
+
+Le projet se compose des elements suivants :
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{books-service} : gestion du catalogue de livres ;
+  \item \texttt{user-loans-service} : gestion des emprunts ;
+  \item \texttt{frontend} : interface React/Vite ;
+  \item PostgreSQL pour chaque service ;
+  \item ressources Kubernetes dans \texttt{k8s/base} et \texttt{k8s/loans}.
+\end{itemize}
 
 \begin{center}
-\begin{tabular}{>{\ttfamily}p{3.5cm} p{9cm}}
+\begin{tabular}{>{\ttfamily}p{4cm} p{4cm} p{5cm}}
 \toprule
-Route & Description \\
+Element & Responsable & Role \\
 \midrule
-GET /books & Lister tous les livres \\
-GET /books/:id & Recuperer un livre par identifiant \\
-POST /books & Ajouter un livre \\
-PUT /books/:id & Modifier un livre \\
-PATCH /books/:id/availability & Modifier la disponibilite d'un livre \\
-PATCH /books/:id/borrow & Marquer un livre comme emprunte \\
-PATCH /books/:id/return & Marquer un livre comme retourne \\
-DELETE /books/:id & Supprimer un livre \\
+books-service & Sirine & catalogue des livres \\
+user-loans-service & Chaimaa & creation et suivi des emprunts \\
+frontend & Sirine & interface utilisateur finale \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection{Base de donnees}
+\section{Service A : Books Service}
 
-Le service s'appuie maintenant sur une base \textbf{PostgreSQL}.
-La table utilisee est la suivante :
+\texttt{books-service} a ete developpe en Node.js avec Express.
+Il gere les livres disponibles dans la bibliotheque.
+
+Fonctionnalites :
+
+\begin{itemize}[leftmargin=*]
+  \item lister tous les livres ;
+  \item recuperer un livre par identifiant ;
+  \item creer un livre ;
+  \item modifier un livre ;
+  \item supprimer un livre ;
+  \item filtrer les livres disponibles ;
+  \item rechercher par titre ou auteur ;
+  \item marquer un livre comme emprunte ;
+  \item marquer un livre comme retourne.
+\end{itemize}
+
+Routes principales :
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{4.5cm} p{8cm}}
+\toprule
+Route & Description \\
+\midrule
+GET /books & lister tous les livres \\
+GET /books/:id & recuperer un livre \\
+POST /books & ajouter un livre \\
+PUT /books/:id & modifier un livre \\
+PATCH /books/:id/availability & changer la disponibilite \\
+PATCH /books/:id/borrow & enregistrer un emprunt cote catalogue \\
+PATCH /books/:id/return & enregistrer un retour cote catalogue \\
+DELETE /books/:id & supprimer un livre \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Le service calcule aussi un champ metier :
+\texttt{AVAILABLE} ou \texttt{BORROWED}.
+
+\section{Service B : User Loans Service}
+
+\texttt{user-loans-service} a egalement ete developpe en Node.js avec Express.
+Il prend en charge la logique metier des emprunts.
+
+Fonctionnalites :
+
+\begin{itemize}[leftmargin=*]
+  \item creer un emprunt ;
+  \item lister tous les emprunts ;
+  \item lister les emprunts d'un utilisateur ;
+  \item retourner un livre ;
+  \item supprimer un emprunt ;
+  \item verifier l'etat du service avec \texttt{/health}.
+\end{itemize}
+
+Routes principales :
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{4.5cm} p{8cm}}
+\toprule
+Route & Description \\
+\midrule
+GET /health & verification du service \\
+GET /loans & lister tous les emprunts \\
+GET /loans/user/:userId & emprunts d'un utilisateur \\
+POST /loans & creer un emprunt \\
+PUT /loans/:id/return & retourner un livre \\
+DELETE /loans/:id & supprimer un emprunt \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Base de donnees}
+
+Chaque service utilise PostgreSQL.
+
+\subsection{Table books}
 
 \begin{verbatim}
 CREATE TABLE books (
@@ -83,146 +146,174 @@ CREATE TABLE books (
 );
 \end{verbatim}
 
-Le service expose egalement un etat metier calcule a partir de \texttt{available} :
-\texttt{AVAILABLE} ou \texttt{BORROWED}.
+\subsection{Table loans}
 
-\section{Etapes realisees}
+\begin{verbatim}
+CREATE TABLE loans (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(100) NOT NULL,
+  book_id VARCHAR(100) NOT NULL,
+  loan_date TIMESTAMP DEFAULT NOW(),
+  return_date TIMESTAMP,
+  status VARCHAR(20) DEFAULT 'active'
+);
+\end{verbatim}
 
-\subsection{1. Service en local}
+\section{Communication inter-services}
 
-Le service depend maintenant de PostgreSQL.
-Pour le lancer localement de maniere simple, nous avons utilise Docker Compose :
+La communication se fait entre \texttt{user-loans-service} et \texttt{books-service}.
+
+Lors de la creation d'un emprunt :
+
+\begin{enumerate}[leftmargin=*]
+  \item le service des emprunts verifie que le livre existe ;
+  \item il verifie que le livre est disponible ;
+  \item il marque le livre comme emprunte ;
+  \item il enregistre ensuite l'emprunt en base.
+\end{enumerate}
+
+Lors d'un retour :
+
+\begin{enumerate}[leftmargin=*]
+  \item l'emprunt est marque comme retourne ;
+  \item le livre est remis en disponibilite dans \texttt{books-service}.
+\end{enumerate}
+
+Cette communication est la partie principale de l'integration metier entre les deux microservices.
+
+\section{Docker et Docker Hub}
+
+\subsection{Books Service}
+
+\begin{verbatim}
+docker build -t books-service-local ./services/books-service
+docker tag books-service-local sirinamarwa/books-service:latest
+docker push sirinamarwa/books-service:latest
+\end{verbatim}
+
+\subsection{Loans Service}
+
+\begin{verbatim}
+docker build -t chaimaaaa/user-loans-service:latest ./services/loans-service
+docker push chaimaaaa/user-loans-service:latest
+\end{verbatim}
+
+\section{Lancement local}
+
+Pour lancer toute l'application localement :
 
 \begin{verbatim}
 docker compose up --build
 \end{verbatim}
 
-La verification a ete realisee avec :
+Services exposes :
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{books-service} sur \texttt{http://localhost:3001} ;
+  \item \texttt{user-loans-service} sur \texttt{http://localhost:3002} ;
+  \item \texttt{frontend} sur \texttt{http://localhost:5173}.
+\end{itemize}
+
+Tests rapides :
 
 \begin{verbatim}
+curl http://localhost:3001/health
 curl http://localhost:3001/books
+curl http://localhost:3002/health
+curl http://localhost:3002/loans
 \end{verbatim}
 
-\subsection{2. Docker}
+\section{Kubernetes}
 
-Un \texttt{Dockerfile} a ete cree pour conteneuriser \texttt{books-service}.
+\subsection{Books Service}
 
-\begin{verbatim}
-docker build -t books-service-local ./services/books-service
-\end{verbatim}
+Le dossier \texttt{k8s/base} contient :
 
-Le lancement de l'ensemble service + base se fait ensuite avec Docker Compose.
+\begin{itemize}[leftmargin=*]
+  \item namespace ;
+  \item ConfigMap ;
+  \item Secret ;
+  \item StatefulSet PostgreSQL ;
+  \item Deployment et Service du catalogue ;
+  \item Ingress.
+\end{itemize}
 
-\subsection{3. Docker Hub}
-
-L'image du service a ensuite ete publiee sur Docker Hub avec le compte :
-
-\begin{verbatim}
-sirinamarwa/books-service:latest
-\end{verbatim}
-
-Commandes utilisees :
-
-\begin{verbatim}
-docker tag books-service-local sirinamarwa/books-service:latest
-docker push sirinamarwa/books-service:latest
-\end{verbatim}
-
-\subsection{4. Kubernetes}
-
-Le service a ete deploye dans Minikube avec PostgreSQL en \texttt{StatefulSet}.
-Les ressources appliquees sont :
+Application :
 
 \begin{verbatim}
 kubectl apply -k k8s/base
 \end{verbatim}
 
-Verification :
+\subsection{Loans Service}
 
-\begin{verbatim}
-kubectl get deployments -n library-app
-kubectl get pods -n library-app
-kubectl get svc -n library-app
-kubectl get pvc -n library-app
-\end{verbatim}
-
-Le pod \texttt{books-service} et le pod \texttt{books-postgres-0} ont bien ete observes dans l'etat \texttt{Running}.
-Le volume persistant PostgreSQL a egalement ete cree et lie avec succes.
-
-\subsection{5. Gateway locale}
-
-Une gateway locale a ete ajoutee avec un \texttt{Ingress} :
-
-\begin{verbatim}
-kubectl apply -f k8s/base/ingress.yaml
-kubectl get ingress -n library-app
-\end{verbatim}
-
-La verification du routage a ete realisee avec :
-
-\begin{verbatim}
-kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8081:80
-curl -H "Host: library.local" http://localhost:8081/books
-\end{verbatim}
-
-\subsection{6. Verification fonctionnelle avec PostgreSQL}
-
-Une fois PostgreSQL integre, nous avons valide les principales routes du service :
-
-\begin{verbatim}
-curl http://localhost:3001/books
-curl http://localhost:3001/books/book-1
-curl "http://localhost:3001/books?available=true"
-curl "http://localhost:3001/books?search=clean"
-curl -X POST http://localhost:3001/books \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Refactoring","author":"Martin Fowler","available":true}'
-curl -X PATCH http://localhost:3001/books/book-1/borrow
-curl -X PATCH http://localhost:3001/books/book-1/return
-\end{verbatim}
-
-Ces tests ont confirme que les livres etaient bien lus et ecrits dans la base de donnees.
-Ils ont egalement valide la gestion de disponibilite d'un livre.
-
-En cas de tentative d'emprunt d'un livre deja prete, l'API renvoie un code \texttt{409}
-avec le message \texttt{Livre deja prete ou non disponible.}
-
-\section{Etat actuel}
+Le dossier \texttt{k8s/loans} contient :
 
 \begin{itemize}[leftmargin=*]
-  \item service local valide ;
-  \item Docker valide ;
-  \item Docker Hub valide ;
-  \item Kubernetes valide ;
-  \item Ingress valide ;
-  \item PostgreSQL valide ;
-  \item CRUD principal valide ;
-  \item verification de l'etat \texttt{AVAILABLE/BORROWED} validee.
+  \item Deployment ;
+  \item StatefulSet PostgreSQL ;
+  \item PVC ;
+  \item Service ;
+  \item Ingress ;
+  \item Secret ;
+  \item RBAC.
 \end{itemize}
 
-\section{Captures a inserer}
+Application :
+
+\begin{verbatim}
+kubectl apply -f k8s/loans/
+\end{verbatim}
+
+\section{Frontend}
+
+L'interface finale a ete realisee en React/Vite.
+
+Fonctionnalites principales de l'UI :
 
 \begin{itemize}[leftmargin=*]
-  \item lancement local du service ;
-  \item reponse de \texttt{curl http://localhost:3001/books} ;
-  \item construction de l'image Docker ;
-  \item publication sur Docker Hub ;
-  \item \texttt{kubectl cluster-info} ;
-  \item \texttt{kubectl get nodes} ;
-  \item \texttt{kubectl get pods -n library-app} ;
-  \item \texttt{kubectl get svc -n library-app} ;
-  \item \texttt{kubectl get pvc -n library-app} ;
-  \item \texttt{kubectl get ingress -n library-app} ;
-  \item test Ingress via \texttt{curl -H "Host: library.local" http://localhost:8081/books} ;
-  \item \texttt{curl http://localhost:3001/books/book-1} ;
-  \item \texttt{POST /books} apres integration PostgreSQL ;
-  \item \texttt{PATCH /books/book-1/borrow} ;
-  \item message d'erreur \texttt{Livre deja prete ou non disponible.}
+  \item catalogue avec recherche et filtres ;
+  \item ajout de livre dans une modale ;
+  \item fiches de livres enrichies ;
+  \item onglet \texttt{Mes Emprunts} ;
+  \item sous-onglet \texttt{Emprunter un livre} ;
+  \item sous-onglet \texttt{Historique des emprunts} ;
+  \item parcours guide de creation d'emprunt ;
+  \item detail d'un emprunt avec timeline et retour.
 \end{itemize}
+
+\section{Repartition du travail}
+
+\begin{center}
+\begin{tabular}{p{7cm} c c}
+\toprule
+Responsabilite & Sirine & Chaimaa \\
+\midrule
+Books Service & X & \\
+Loans Service & & X \\
+PostgreSQL & X & X \\
+Docker / Docker Hub & X & X \\
+Kubernetes & X & X \\
+Ingress & X & X \\
+RBAC / Secrets loans & & X \\
+Communication inter-services & & X \\
+Frontend React final & X & \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 \section{Conclusion}
 
-Cette premiere partie du projet valide toute la chaine technique pour un microservice :
-developpement local, conteneurisation, publication d'image, deploiement Kubernetes, exposition via une gateway locale, integration d'une base PostgreSQL et gestion de disponibilite d'un livre.
+Le projet final valide une architecture microservices complete :
+
+\begin{itemize}[leftmargin=*]
+  \item deux services independants ;
+  \item deux bases PostgreSQL ;
+  \item une communication REST metier ;
+  \item une execution locale complete avec Docker Compose ;
+  \item des deploiements Kubernetes distincts ;
+  \item une interface web moderne pour la demonstration.
+\end{itemize}
+
+Le resultat final permet de gerer un catalogue, creer des emprunts, enregistrer les retours et visualiser l'etat du systeme dans une seule interface.
 
 \end{document}

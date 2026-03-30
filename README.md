@@ -1,35 +1,48 @@
 # Systeme de Gestion de Bibliotheque — Microservices
 
-Application distribuee de gestion de bibliotheque developpee en binome (Sirine & Chaimaa).
+Projet realise en binome par Sirine et Chaimaa.
 
-Architecture basee sur deux microservices independants communicant via REST, conteneurises avec Docker et orchestres sous Kubernetes (Minikube).
+L'application repose sur deux microservices Node.js/Express, chacun connecte a PostgreSQL, conteneurises avec Docker et deployables sous Kubernetes. Une interface React/Vite permet de manipuler le catalogue et les emprunts dans une seule demo.
 
-| | Service A — Books | Service B — Loans |
-|--|--|--|
-| Auteure | Sirine | Chaimaa |
-| Langage | Node.js | Node.js |
+## Vue d'ensemble
+
+| Element | Books Service | Loans Service |
+|---|---|---|
+| Responsable | Sirine | Chaimaa |
+| Role | gestion du catalogue | gestion des emprunts |
+| Langage | Node.js / Express | Node.js / Express |
 | Base de donnees | PostgreSQL | PostgreSQL |
-| Port interne | 3001 | 3000 |
-| Namespace K8s | `library-app` | `default` |
+| Port interne | `3001` | `3000` |
+| Port local Docker Compose | `3001` | `3002` |
+| Image Docker Hub | `sirinamarwa/books-service:latest` | `chaimaaaa/user-loans-service:latest` |
 
-## Service A
+## Architecture
 
-`books-service` est un microservice REST en Node.js pour la gestion des livres.
+- `services/books-service/` : catalogue de livres
+- `services/loans-service/` : creation, suivi et retour des emprunts
+- `frontend/` : interface React/Vite
+- `k8s/base/` : ressources Kubernetes pour `books-service` et son PostgreSQL
+- `k8s/loans/` : ressources Kubernetes pour `loans-service` et son PostgreSQL
 
-Fonctionnalites :
+## Service A — Books Service
 
-- ajouter un livre
-- lister les livres
+`books-service` gere les livres du catalogue.
+
+Fonctionnalites principales :
+
+- lister tous les livres
 - recuperer un livre par identifiant
+- creer un livre
 - modifier un livre
-- filtrer les livres disponibles
-- rechercher un livre par titre ou auteur
-- emprunter un livre
-- enregistrer le retour d'un livre
 - supprimer un livre
+- filtrer les livres disponibles
+- rechercher par titre ou auteur
+- marquer un livre comme emprunte
+- marquer un livre comme retourne
 
 Routes principales :
 
+- `GET /health`
 - `GET /books`
 - `GET /books/:id`
 - `POST /books`
@@ -44,68 +57,156 @@ Le service retourne aussi un champ metier `status` :
 - `AVAILABLE`
 - `BORROWED`
 
-## Local
+Schema PostgreSQL :
 
-Le service depend maintenant de PostgreSQL.
-Pour un lancement complet et simple, utilise Docker Compose :
+```sql
+CREATE TABLE books (
+  id VARCHAR(100) PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  author VARCHAR(255),
+  available BOOLEAN DEFAULT true
+);
+```
+
+Le seed actuel charge un catalogue de demonstration avec plusieurs ouvrages techniques.
+
+## Service B — Loans Service
+
+`user-loans-service` gere les emprunts.
+
+Fonctionnalites principales :
+
+- creer un emprunt
+- lister tous les emprunts
+- lister les emprunts d'un utilisateur
+- enregistrer le retour d'un livre
+- supprimer un emprunt
+- verifier l'etat du service
+
+Routes principales :
+
+- `GET /health`
+- `GET /loans`
+- `GET /loans/user/:userId`
+- `POST /loans`
+- `PUT /loans/:id/return`
+- `DELETE /loans/:id`
+
+Schema PostgreSQL :
+
+```sql
+CREATE TABLE loans (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(100) NOT NULL,
+  book_id VARCHAR(100) NOT NULL,
+  loan_date TIMESTAMP DEFAULT NOW(),
+  return_date TIMESTAMP,
+  status VARCHAR(20) DEFAULT 'active'
+);
+```
+
+### Communication inter-services
+
+Lorsqu'un emprunt est cree, `loans-service` :
+
+1. verifie que le livre existe dans `books-service`
+2. demande a `books-service` de marquer le livre comme emprunte
+3. enregistre ensuite l'emprunt en base
+
+Lors d'un retour, `loans-service` :
+
+1. marque l'emprunt comme retourne
+2. remet le livre en disponibilite dans `books-service`
+
+Variable d'environnement utilisee en Kubernetes :
+
+```bash
+BOOK_CATALOG_URL=http://books-service.library-app.svc.cluster.local:3001
+```
+
+## Frontend
+
+Le frontend React/Vite se trouve dans `frontend/`.
+
+Fonctionnalites UI actuelles :
+
+- catalogue visuel avec recherche et filtres
+- ajout de livre via une modale
+- fiche de livre selectionne
+- vue `Mes Emprunts`
+- sous-onglet `Emprunter un livre`
+- sous-onglet `Historique des emprunts`
+- parcours guide de creation d'emprunt
+- recapitulatif du pret en cours de creation
+- detail d'un emprunt avec timeline et action de retour
+
+Variables utilisees par le frontend :
+
+```bash
+VITE_BOOKS_API_URL=http://localhost:3001
+VITE_LOANS_API_URL=http://localhost:3002
+```
+
+## Lancement local complet
+
+Le plus simple pour lancer toute l'application est :
 
 ```bash
 docker compose up --build
 ```
 
-Verifier :
+Services exposes localement :
+
+- `books-service` : `http://localhost:3001`
+- `loans-service` : `http://localhost:3002`
+- `frontend` : `http://localhost:5173`
+- `postgres` : `localhost:5432`
+
+Verification rapide :
 
 ```bash
+curl http://localhost:3001/health
 curl http://localhost:3001/books
-curl http://localhost:3001/books/book-1
+curl http://localhost:3002/health
+curl http://localhost:3002/loans
 ```
 
-Le service utilise maintenant PostgreSQL. Pour un lancement local complet, il est donc recommande d'utiliser Docker Compose.
-
-Exemples de tests metier :
+Puis ouvrir :
 
 ```bash
-curl "http://localhost:3001/books?available=true"
-curl "http://localhost:3001/books?search=clean"
-curl -X PATCH http://localhost:3001/books/book-1/borrow
-curl -X PATCH http://localhost:3001/books/book-1/return
+http://localhost:5173
 ```
 
 ## Docker
 
-Construire l'image :
+### Books Service
 
 ```bash
 docker build -t books-service-local ./services/books-service
-```
-
-Mettre a jour Docker Hub :
-
-```bash
 docker tag books-service-local sirinamarwa/books-service:latest
 docker push sirinamarwa/books-service:latest
 ```
 
-## Docker Hub
-
-Image utilisee :
+### Loans Service
 
 ```bash
-sirinamarwa/books-service:latest
+docker build -t chaimaaaa/user-loans-service:latest ./services/loans-service
+docker push chaimaaaa/user-loans-service:latest
 ```
-
-Publier :
 
 ## Kubernetes
 
-Le dossier `k8s/base` est actuellement configure uniquement pour `books-service`.
+### Books Service
 
-Il inclut maintenant :
+Le dossier `k8s/base/` contient :
 
-- un `StatefulSet` PostgreSQL
-- une table `books`
-- le service `books-service`
-- un `Ingress`
+- `namespace.yaml`
+- `configmap.yaml`
+- `secret.yaml`
+- `postgres.yaml`
+- `books-service.yaml`
+- `ingress.yaml`
+- `kustomization.yaml`
 
 Appliquer :
 
@@ -116,139 +217,23 @@ kubectl apply -k k8s/base
 Verifier :
 
 ```bash
-kubectl get deployments -n library-app
 kubectl get pods -n library-app
 kubectl get svc -n library-app
-kubectl get ingress -n library-app
 kubectl get pvc -n library-app
+kubectl get ingress -n library-app
 ```
 
-Pour tester le service deploye :
-
-```bash
-kubectl port-forward svc/books-service 3010:3001 -n library-app
-```
-
-Puis dans un autre terminal :
-
-```bash
-curl http://localhost:3010/books
-curl http://localhost:3010/books/book-1
-curl -X PATCH http://localhost:3010/books/book-1/borrow
-```
-
-En cas de livre deja emprunte, l'API renvoie :
-
-- code HTTP `409`
-- `code: BOOK_UNAVAILABLE`
-- message `Livre deja prete ou non disponible.`
-
-## Frontend
-
-Un frontend React/Vite est maintenant disponible dans `frontend/`.
-
-Fonctionnalites UI actuelles :
-
-- affichage du catalogue
-- badge `Disponible` / `Deja prete`
-- ajout d'un livre
-- bouton `Emprunter`
-- bouton `Retourner`
-- zone reservee pour le module `loans-service` de Chaimaa
-
-Lancement local :
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Puis ouvrir :
-
-```bash
-http://localhost:5173
-```
-
-Variables optionnelles :
-
-- `VITE_BOOKS_API_URL=http://localhost:3001`
-- `VITE_LOANS_API_URL=http://localhost:3002`
-
-## Service B — user-loans-service (Chaimaa)
-
-`user-loans-service` est un microservice REST en Node.js qui gere les emprunts de livres.
-Il communique avec `books-service` pour verifier la disponibilite des livres et synchroniser leur statut.
-
-### Fonctionnalites
-
-- creer un emprunt (verifie que le livre existe et est disponible via `books-service`)
-- refuser un emprunt si le livre est deja emprunte (HTTP 409)
-- lister tous les emprunts
-- lister les emprunts d'un utilisateur specifique
-- retourner un livre (met a jour la disponibilite dans `books-service`)
-- supprimer un emprunt
-- health check (`GET /health`)
-
-### Routes
-
-| Methode | Route | Description |
-|---------|-------|-------------|
-| GET | `/loans` | Lister tous les emprunts |
-| GET | `/loans/user/:userId` | Emprunts d'un utilisateur |
-| POST | `/loans` | Creer un emprunt |
-| PUT | `/loans/:id/return` | Retourner un livre |
-| DELETE | `/loans/:id` | Supprimer un emprunt |
-| GET | `/health` | Health check |
-
-### Communication inter-services
-
-Lors de chaque emprunt, le service appelle `books-service` :
-
-1. `GET /books/:id` — verifie que le livre existe
-2. `PATCH /books/:id/borrow` — marque le livre comme emprunte
-3. `PATCH /books/:id/return` — marque le livre comme disponible au retour
-
-Variable d'environnement :
-
-```
-BOOK_CATALOG_URL=http://books-service.library-app.svc.cluster.local:3001
-```
-
-### Securite (RBAC + Secrets)
-
-- `ServiceAccount` dedie : `loans-service-account`
-- `Role` et `RoleBinding` pour restreindre les acces au cluster
-- Credentials PostgreSQL stockes dans des `Kubernetes Secrets` (jamais en clair dans les YAML)
-
-### Base de donnees
-
-PostgreSQL deploye via `StatefulSet` avec `PersistentVolumeClaim` pour garantir la persistance des donnees apres redemarrage des pods.
-
-Schema de la table `loans` :
-
-```sql
-CREATE TABLE loans (
-  id          SERIAL PRIMARY KEY,
-  user_id     VARCHAR(100) NOT NULL,
-  book_id     VARCHAR(100) NOT NULL,
-  loan_date   TIMESTAMP DEFAULT NOW(),
-  return_date TIMESTAMP,
-  status      VARCHAR(20) DEFAULT 'active'
-);
-```
-
-### Kubernetes
+### Loans Service
 
 Le dossier `k8s/loans/` contient :
 
-- `deployment.yaml` — Deployment du service Node.js
-- `statefulset-postgres.yaml` — StatefulSet PostgreSQL
-- `pvc.yaml` — PersistentVolumeClaim pour la persistance
-- `service.yaml` — Service ClusterIP
-- `ingress.yaml` — Ingress nginx (expose `/loans` sur `http://127.0.0.1`)
-- `secret.yaml` — Secrets PostgreSQL
-- `rbac.yaml` — ServiceAccount, Role, RoleBinding
+- `deployment.yaml`
+- `statefulset-postgres.yaml`
+- `pvc.yaml`
+- `service.yaml`
+- `ingress.yaml`
+- `secret.yaml`
+- `rbac.yaml`
 
 Appliquer :
 
@@ -263,62 +248,50 @@ kubectl get pods
 kubectl get svc
 kubectl get ingress
 kubectl get pvc
-kubectl get secrets
 ```
 
-### Docker Hub
+## Exemples de tests API
+
+### Catalogue
 
 ```bash
-chaimaaaa/user-loans-service:latest
+curl http://localhost:3001/books
+curl http://localhost:3001/books/book-1
+curl "http://localhost:3001/books?available=true"
+curl "http://localhost:3001/books?search=clean"
+curl -X PATCH http://localhost:3001/books/book-1/borrow
+curl -X PATCH http://localhost:3001/books/book-1/return
 ```
 
-Construire et publier :
+### Emprunts
 
 ```bash
-docker build -t chaimaaaa/user-loans-service:latest ./services/loans-service
-docker push chaimaaaa/user-loans-service:latest
-```
-
-### Tests de l'API
-
-Prerequis : `minikube tunnel` actif dans un terminal separe.
-
-```bash
-# Creer un emprunt
-curl -X POST http://127.0.0.1/loans \
+curl -X POST http://localhost:3002/loans \
   -H "Content-Type: application/json" \
   -d '{"user_id":"u1","book_id":"book-1"}'
 
-# Lister tous les emprunts
-curl http://127.0.0.1/loans
-
-# Emprunts d'un utilisateur
-curl http://127.0.0.1/loans/user/u1
-
-# Retourner un livre
-curl -X PUT http://127.0.0.1/loans/1/return
-
-# Supprimer un emprunt
-curl -X DELETE http://127.0.0.1/loans/1
+curl http://localhost:3002/loans
+curl http://localhost:3002/loans/user/u1
+curl -X PUT http://localhost:3002/loans/1/return
 ```
 
-Reponses metier :
+Reponses metier attendues :
 
-- `201` — emprunt cree avec succes
-- `404` — livre introuvable dans le catalogue
-- `409` — livre deja emprunte
-- `500` — erreur interne
+- `201` : emprunt cree avec succes
+- `404` : livre introuvable
+- `409` : livre deja emprunte / indisponible
+- `500` : erreur interne
 
 ## Repartition finale
 
 | Responsabilite | Sirine | Chaimaa |
-|----------------|--------|---------|
-| Service Livres (Book-Catalog) | ✅ | |
-| Service Emprunts (User-Loans) | | ✅ |
-| PostgreSQL + PVC | ✅ | ✅ |
-| Docker + Docker Hub | ✅ | ✅ |
-| Kubernetes Deployment | ✅ | ✅ |
-| Ingress / Routage | ✅ | ✅ |
-| RBAC + Secrets | | ✅ |
+|---|---|---|
+| Books Service | ✅ | |
+| Loans Service | | ✅ |
+| PostgreSQL | ✅ | ✅ |
+| Docker / Docker Hub | ✅ | ✅ |
+| Kubernetes | ✅ | ✅ |
+| Ingress | ✅ | ✅ |
+| RBAC / Secrets loans | | ✅ |
 | Communication inter-services | | ✅ |
-| Frontend React | ✅ | |
+| Frontend React final | ✅ | |
