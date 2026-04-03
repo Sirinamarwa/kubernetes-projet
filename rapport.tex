@@ -1,319 +1,527 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage[french]{babel}
 \usepackage{lmodern}
 \usepackage[a4paper,margin=2.5cm]{geometry}
 \usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage{array}
 \usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{mdframed}
+\usepackage{tabularx}
+\usepackage{fvextra}
 
-\title{Projet Microservices de Bibliotheque}
-\author{Sirine \and Chaimaa}
-\date{\today}
+% Couleurs
+\definecolor{mainblue}{RGB}{30, 90, 160}
+\definecolor{lightblue}{RGB}{220, 235, 255}
+\definecolor{darkgray}{RGB}{60, 60, 60}
+\definecolor{lightgray}{RGB}{245, 245, 245}
+\definecolor{accentgreen}{RGB}{0, 130, 80}
+
+% Titres colorés
+\titleformat{\section}
+  {\large\bfseries\color{mainblue}}
+  {\thesection.}{0.8em}{}[\color{mainblue}\titlerule]
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{darkgray}}
+  {\thesubsection.}{0.6em}{}
+
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{accentgreen}}
+  {\thesubsubsection.}{0.6em}{}
+
+% En-tête et pied de page
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\textcolor{mainblue}{\small Projet Microservices -- Bibliothèque}}
+\lhead{\textcolor{darkgray}{\small Sirine \& Chaimaa}}
+\rfoot{\textcolor{darkgray}{\small \thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{mainblue}\leaders\hrule height \headrulewidth\hfill}}
+
+% Boîte info
+\newmdenv[
+  backgroundcolor=lightblue,
+  linecolor=mainblue,
+  linewidth=1.5pt,
+  topline=true, bottomline=true, leftline=true, rightline=true,
+  leftmargin=0pt, rightmargin=0pt,
+  innerleftmargin=10pt, innerrightmargin=10pt,
+  innertopmargin=8pt, innerbottommargin=8pt
+]{infobox}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=mainblue,
+  urlcolor=mainblue
+}
 
 \begin{document}
 
-\maketitle
+% ---- Page de garde ----
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
 
+  % Bandeau superieur
+  {\color{mainblue}\rule{\linewidth}{3pt}}\\[0.3cm]
+  {\small\color{darkgray} Master MIAGE -- Architecture Microservices}\\[0.2cm]
+  {\color{mainblue}\rule{\linewidth}{1pt}}
+
+  \vspace{1.5cm}
+
+  % Titre principal
+  {\fontsize{34}{42}\bfseries\color{mainblue} Projet Microservices}\\[0.4cm]
+  {\LARGE\color{darkgray} Application de Gestion de Bibliothèque}\\[0.6cm]
+
+  % Ligne decorative centrale
+  {\color{mainblue}\rule{0.6\linewidth}{1.5pt}}
+
+  \vspace{1cm}
+
+  % Bloc infos
+  \begin{minipage}{0.45\textwidth}
+    \raggedright
+    {\small\color{darkgray}\textbf{Étudiantes}}\\[0.2cm]
+    {\large\textbf{Sirine BOUGHANEM}}\\[0.1cm]
+    {\large\textbf{Chaimaa ARSALANE}}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.45\textwidth}
+    \raggedleft
+    {\small\color{darkgray}\textbf{Encadrant}}\\[0.2cm]
+    {\large Benoît Charroux}
+  \end{minipage}
+
+  \vspace{0.8cm}
+
+  % Infobox depot et images
+  \begin{infobox}
+  \textbf{Dépôt Git :} \texttt{github.com/[repo]}\\[2pt]
+  \textbf{Images Docker Hub :}\\
+  \quad \texttt{sirinamarwa/books-service:latest}\\
+  \quad \texttt{chaimaaaa/user-loans-service:latest}\\[2pt]
+  \textbf{Technologies :} Node.js \textbullet{} PostgreSQL \textbullet{} Docker \textbullet{} Kubernetes \textbullet{} React/Vite
+  \end{infobox}
+
+  \vspace{0.4cm}
+
+  % Bandeau inferieur
+  {\color{mainblue}\rule{\linewidth}{3pt}}\\[0.3cm]
+  {\small\color{darkgray} Année universitaire 2025 -- 2026}
+
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
 \section{Introduction}
+% ============================================================
 
-Ce projet consiste a realiser une application de gestion de bibliotheque selon une architecture microservices.
-L'application finale repose sur deux services independants, une interface web React, Docker, Docker Hub, PostgreSQL et Kubernetes.
+Ce projet a pour objectif de concevoir et déployer une application de gestion de bibliothèque
+en suivant une architecture microservices. Chaque fonctionnalité est encapsulée dans un service
+indépendant, déployable et scalable de manière autonome.
 
-Objectifs principaux :
-
-\begin{itemize}[leftmargin=*]
-  \item separer le domaine en deux microservices coherents ;
-  \item mettre en place une communication REST entre services ;
-  \item persister les donnees avec PostgreSQL ;
-  \item conteneuriser chaque service ;
-  \item publier les images sur Docker Hub ;
-  \item deployer l'ensemble sur Kubernetes ;
-  \item proposer une interface web de demonstration.
-\end{itemize}
-
-\section{Architecture generale}
-
-Le projet se compose des elements suivants :
+L'architecture microservices a été choisie pour plusieurs raisons :
 
 \begin{itemize}[leftmargin=*]
-  \item \texttt{books-service} : gestion du catalogue de livres ;
-  \item \texttt{user-loans-service} : gestion des emprunts ;
-  \item \texttt{frontend} : interface React/Vite ;
-  \item PostgreSQL pour chaque service ;
-  \item ressources Kubernetes dans \texttt{k8s/base} et \texttt{k8s/loans}.
+  \item \textbf{Séparation des responsabilités} : le catalogue de livres et la gestion des emprunts
+        sont deux domaines métier distincts qui évoluent indépendamment ;
+  \item \textbf{Résilience} : la panne d'un service n'affecte pas l'autre ;
+  \item \textbf{Scalabilité} : chaque service peut être mis à l'échelle indépendamment selon la charge.
 \end{itemize}
+
+Objectifs techniques du projet :
+
+\begin{itemize}[leftmargin=*]
+  \item développer deux microservices REST en Node.js/Express ;
+  \item mettre en place une communication synchrone inter-services via HTTP ;
+  \item persister les données avec PostgreSQL (une base par service) ;
+  \item conteneuriser chaque service avec Docker et publier les images sur Docker Hub ;
+  \item orchestrer l'ensemble avec Kubernetes (Deployments, Services, Ingress, Secrets, RBAC, PVC) ;
+  \item proposer une interface web React de démonstration.
+\end{itemize}
+
+% ============================================================
+\section{Architecture générale}
+% ============================================================
+
+L'application est décomposée en trois couches principales :
 
 \begin{center}
-\begin{tabular}{>{\ttfamily}p{4cm} p{4cm} p{5cm}}
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{4.5cm} X}
 \toprule
-Element & Responsable & Role \\
+\normalfont\textbf{Composant} & \textbf{Rôle} \\
 \midrule
-books-service & Sirine & catalogue des livres \\
-user-loans-service & Chaimaa & creation et suivi des emprunts \\
-frontend & Sirine & interface utilisateur finale \\
+books-service        & Catalogue des livres -- CRUD + disponibilité \\
+user-loans-service   & Gestion des emprunts -- orchestration + communication \\
+PostgreSQL (books)   & Persistance du catalogue \\
+PostgreSQL (loans)   & Persistance des emprunts \\
+frontend             & Interface React/Vite -- catalogue + emprunts \\
+k8s/base             & Manifests Kubernetes du catalogue \\
+k8s/loans            & Manifests Kubernetes des emprunts (RBAC, Secrets, PVC) \\
+docker-compose.yml   & Orchestration locale des services backend (books + loans) \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{center}
 
+\vspace{0.5cm}
+
+\begin{infobox}
+\textbf{Flux de communication :}\\[4pt]
+\textbf{1. Consultation du catalogue :}\\
+\quad Utilisateur $\rightarrow$ Frontend $\rightarrow$ \texttt{books-service} $\rightarrow$ PostgreSQL (books)\\[3pt]
+\textbf{2. Emprunt d'un livre :}\\
+\quad Utilisateur $\rightarrow$ Frontend $\rightarrow$ \texttt{user-loans-service} $\rightarrow$ PostgreSQL (loans)\\
+\quad \phantom{Utilisateur $\rightarrow$ Frontend $\rightarrow$} $\xrightarrow{\text{HTTP interne}}$ \texttt{books-service} $\rightarrow$ PostgreSQL (books)\\[3pt]
+\textbf{3. Retour d'un livre :}\\
+\quad Utilisateur $\rightarrow$ Frontend $\rightarrow$ \texttt{user-loans-service} $\xrightarrow{\text{HTTP interne}}$ \texttt{books-service}\\
+\quad \phantom{Utilisateur $\rightarrow$ Frontend $\rightarrow$ \texttt{user-loans-service} $\rightarrow$} mise à jour statut + PostgreSQL (books)
+\end{infobox}
+
+% ============================================================
 \section{Service A : Books Service}
+% ============================================================
 
-\texttt{books-service} a ete developpe en Node.js avec Express.
-Il gere les livres disponibles dans la bibliotheque.
+\texttt{books-service} est développé en Node.js avec Express et PostgreSQL.
+Il expose une API REST pour la gestion complète du catalogue de la bibliothèque.
 
-Fonctionnalites :
+\subsection{Fonctionnalités}
 
 \begin{itemize}[leftmargin=*]
-  \item lister tous les livres ;
-  \item recuperer un livre par identifiant ;
-  \item creer un livre ;
-  \item modifier un livre ;
-  \item supprimer un livre ;
-  \item filtrer les livres disponibles ;
-  \item rechercher par titre ou auteur ;
-  \item marquer un livre comme emprunte ;
-  \item marquer un livre comme retourne.
+  \item lister tous les livres avec filtres (disponibilité, recherche par titre ou auteur) ;
+  \item récupérer un livre par identifiant ;
+  \item créer, modifier et supprimer un livre ;
+  \item exposer un champ métier \texttt{status} : \texttt{AVAILABLE} ou \texttt{BORROWED} ;
+  \item permettre à \texttt{user-loans-service} de modifier la disponibilité via des routes PATCH.
 \end{itemize}
 
-Routes principales :
+\subsection{Routes}
 
 \begin{center}
-\begin{tabular}{>{\ttfamily}p{4.5cm} p{8cm}}
+\begin{tabular}{>{\ttfamily}p{5.5cm} p{7cm}}
 \toprule
 Route & Description \\
 \midrule
-GET /books & lister tous les livres \\
-GET /books/:id & recuperer un livre \\
-POST /books & ajouter un livre \\
-PUT /books/:id & modifier un livre \\
-PATCH /books/:id/availability & changer la disponibilite \\
-PATCH /books/:id/borrow & enregistrer un emprunt cote catalogue \\
-PATCH /books/:id/return & enregistrer un retour cote catalogue \\
-DELETE /books/:id & supprimer un livre \\
+GET /books                    & lister tous les livres \\
+GET /books?available=true     & filtrer les livres disponibles \\
+GET /books?search=...         & rechercher par titre ou auteur \\
+GET /books/:id                & récupérer un livre \\
+POST /books                   & ajouter un livre \\
+PUT /books/:id                & modifier un livre \\
+PATCH /books/:id/availability & changer la disponibilité \\
+PATCH /books/:id/borrow       & marquer comme emprunté (appel inter-service) \\
+PATCH /books/:id/return       & marquer comme disponible (appel inter-service) \\
+DELETE /books/:id             & supprimer un livre \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Le service calcule aussi un champ metier :
-\texttt{AVAILABLE} ou \texttt{BORROWED}.
+\subsection{Kubernetes (k8s/base)}
 
+L'ensemble des manifests Kubernetes pour \texttt{books-service} est configuré dans \texttt{k8s/base} :
+namespace \texttt{library-app}, ConfigMap, Secret, StatefulSet PostgreSQL,
+Deployment, Service et Ingress. Application via Kustomize :
+
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
+kubectl apply -k k8s/base
+\end{Verbatim}
+
+% ============================================================
 \section{Service B : User Loans Service}
+% ============================================================
 
-\texttt{user-loans-service} a egalement ete developpe en Node.js avec Express.
-Il prend en charge la logique metier des emprunts.
+\texttt{user-loans-service} est développé en Node.js avec Express et PostgreSQL.
+Il prend en charge la logique métier des emprunts et orchestre la communication avec \texttt{books-service}
+pour maintenir la cohérence des données entre les deux services.
 
-Fonctionnalites :
+\subsection{Fonctionnalités}
 
 \begin{itemize}[leftmargin=*]
-  \item creer un emprunt ;
-  \item lister tous les emprunts ;
-  \item lister les emprunts d'un utilisateur ;
-  \item retourner un livre ;
+  \item créer un emprunt après vérification que le livre existe et est disponible ;
+  \item refuser automatiquement un emprunt si le livre est déjà prêté (HTTP 409) ;
+  \item lister tous les emprunts actifs et historiques ;
+  \item lister les emprunts d'un utilisateur spécifique par son identifiant ;
+  \item enregistrer le retour d'un livre et remettre sa disponibilité à jour dans \texttt{books-service} ;
   \item supprimer un emprunt ;
-  \item verifier l'etat du service avec \texttt{/health}.
+  \item health check via \texttt{GET /health} pour la supervision Kubernetes.
 \end{itemize}
 
-Routes principales :
+\subsection{Routes}
 
 \begin{center}
-\begin{tabular}{>{\ttfamily}p{4.5cm} p{8cm}}
+\begin{tabular}{>{\ttfamily}p{5.5cm} p{7cm}}
 \toprule
 Route & Description \\
 \midrule
-GET /health & verification du service \\
-GET /loans & lister tous les emprunts \\
-GET /loans/user/:userId & emprunts d'un utilisateur \\
-POST /loans & creer un emprunt \\
-PUT /loans/:id/return & retourner un livre \\
-DELETE /loans/:id & supprimer un emprunt \\
+GET /health              & vérification de l'état du service \\
+GET /loans               & lister tous les emprunts \\
+GET /loans/user/:userId  & emprunts d'un utilisateur \\
+POST /loans              & créer un emprunt \\
+PUT /loans/:id/return    & retourner un livre \\
+DELETE /loans/:id        & supprimer un emprunt \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\section{Base de donnees}
+\subsection{Codes de réponse métier}
 
-Chaque service utilise PostgreSQL.
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{2cm} p{9cm}}
+\toprule
+Code HTTP & Signification \\
+\midrule
+201 & emprunt créé avec succès \\
+200 & opération réussie (retour, liste) \\
+404 & livre introuvable dans le catalogue \\
+409 & livre déjà emprunté -- conflit métier \\
+500 & erreur interne \\
+\bottomrule
+\end{tabular}
+\end{center}
 
-\subsection{Table books}
+\subsection{Kubernetes (k8s/loans)}
 
-\begin{verbatim}
+L'ensemble des manifests Kubernetes pour \texttt{user-loans-service} est configuré dans \texttt{k8s/loans} :
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{deployment.yaml} : Deployment Node.js avec injection des variables d'environnement ;
+  \item \texttt{statefulset-postgres.yaml} : StatefulSet PostgreSQL pour la haute disponibilité des données ;
+  \item \texttt{pvc.yaml} : PersistentVolumeClaim de 1\,Gi -- les données survivent au redémarrage des pods ;
+  \item \texttt{service.yaml} : Service ClusterIP pour l'exposition interne dans le cluster ;
+  \item \texttt{ingress.yaml} : Ingress nginx qui route \texttt{/loans} vers le service ;
+  \item \texttt{secret.yaml} : Secrets Kubernetes pour les credentials PostgreSQL ;
+  \item \texttt{rbac.yaml} : contrôle d'accès basé sur les rôles.
+\end{itemize}
+
+\subsubsection*{Secrets Kubernetes}
+
+Les credentials de la base de données (hôte, port, nom, utilisateur, mot de passe) sont stockés
+dans un \texttt{Secret} Kubernetes encodé en base64. Ils sont ensuite injectés en variables
+d'environnement dans le container via \texttt{envFrom}. Aucun secret n'apparaît en clair
+dans les fichiers de configuration ou dans le code source.
+
+\subsubsection*{RBAC -- Principe du moindre privilège}
+
+Un contrôle d'accès granulaire est mis en place via trois ressources Kubernetes :
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{ServiceAccount loans-service-account} : identité dédiée au pod, séparée du compte par défaut ;
+  \item \texttt{Role} : liste explicite des permissions minimales nécessaires au service ;
+  \item \texttt{RoleBinding} : association du Role au ServiceAccount.
+\end{itemize}
+
+Ce mécanisme empêche le pod d'accéder à des ressources Kubernetes non autorisées,
+conformément aux bonnes pratiques de sécurité en environnement de production.
+
+Application :
+
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
+kubectl apply -f k8s/loans/
+\end{Verbatim}
+
+% ============================================================
+\section{Base de données}
+% ============================================================
+
+Chaque service dispose de sa propre instance PostgreSQL, déployée comme StatefulSet Kubernetes
+avec un PersistentVolumeClaim. Cette isolation garantit l'indépendance des services.
+
+\subsection{Table \texttt{books}}
+
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
 CREATE TABLE books (
-  id VARCHAR(100) PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  author VARCHAR(255),
+  id        VARCHAR(100) PRIMARY KEY,
+  title     VARCHAR(255) NOT NULL,
+  author    VARCHAR(255),
   available BOOLEAN DEFAULT true
 );
-\end{verbatim}
+\end{Verbatim}
 
-\subsection{Table loans}
+\subsection{Table \texttt{loans}}
 
-\begin{verbatim}
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
 CREATE TABLE loans (
-  id SERIAL PRIMARY KEY,
-  user_id VARCHAR(100) NOT NULL,
-  book_id VARCHAR(100) NOT NULL,
-  loan_date TIMESTAMP DEFAULT NOW(),
+  id          SERIAL PRIMARY KEY,
+  user_id     VARCHAR(100)  NOT NULL,
+  book_id     VARCHAR(100)  NOT NULL,
+  loan_date   TIMESTAMP     DEFAULT NOW(),
   return_date TIMESTAMP,
-  status VARCHAR(20) DEFAULT 'active'
+  status      VARCHAR(20)   DEFAULT 'active'
 );
-\end{verbatim}
+\end{Verbatim}
 
+Le champ \texttt{status} prend les valeurs \texttt{active} ou \texttt{returned}.
+Le champ \texttt{return\_date} est \texttt{NULL} tant que le livre n'est pas retourné.
+
+% ============================================================
 \section{Communication inter-services}
+% ============================================================
 
-La communication se fait entre \texttt{user-loans-service} et \texttt{books-service}.
+La communication inter-services permet aux deux microservices de rester cohérents
+sans partager de base de données.
 
-Lors de la creation d'un emprunt :
+\texttt{user-loans-service} appelle \texttt{books-service} via la variable d'environnement
+\texttt{BOOK\_CATALOG\_URL}, dont la valeur dépend du contexte de déploiement :
+
+\begin{center}
+\begin{tabular}{p{3.5cm} p{9cm}}
+\toprule
+\textbf{Contexte} & \textbf{URL} \\
+\midrule
+Docker Compose & \texttt{http://books-service:3001} \\
+Kubernetes     & \texttt{http://books-service.library-app.svc.cluster.local:3001} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+En Kubernetes, ce DNS interne est résolu par le \textit{kube-dns} :
+le service \texttt{books-service} du namespace \texttt{library-app} est contacté directement,
+sans passer par un port externe ni par l'Ingress.
+
+\textbf{Note sur les namespaces :} \texttt{books-service} est déployé dans le namespace
+\texttt{library-app} ; \texttt{user-loans-service} est déployé dans le namespace \texttt{default}.
+L'URL complète avec le namespace permet la communication cross-namespace.
+
+\subsection{Flux d'un emprunt (\texttt{POST /loans})}
 
 \begin{enumerate}[leftmargin=*]
-  \item le service des emprunts verifie que le livre existe ;
-  \item il verifie que le livre est disponible ;
-  \item il marque le livre comme emprunte ;
-  \item il enregistre ensuite l'emprunt en base.
+  \item \texttt{GET /books/:id} --- le service vérifie que le livre existe dans le catalogue ;
+  \item si le livre est introuvable, retourne \texttt{404} sans créer d'emprunt ;
+  \item si un emprunt actif existe déjà pour ce livre en base (\texttt{status = 'active'}), retourne \texttt{409} (conflit métier) ;
+  \item \texttt{PATCH /books/:id/borrow} --- le livre est marqué comme emprunté dans \texttt{books-service} ;
+  \item l'emprunt est enregistré en base PostgreSQL avec le statut \texttt{active}.
 \end{enumerate}
 
-Lors d'un retour :
+\subsection{Flux d'un retour (\texttt{PUT /loans/:id/return})}
 
 \begin{enumerate}[leftmargin=*]
-  \item l'emprunt est marque comme retourne ;
-  \item le livre est remis en disponibilite dans \texttt{books-service}.
+  \item l'emprunt est mis à jour : \texttt{status = returned}, \texttt{return\_date = NOW()} ;
+  \item \texttt{PATCH /books/:id/return} --- le livre est remis en disponibilité dans \texttt{books-service}.
 \end{enumerate}
 
-Cette communication est la partie principale de l'integration metier entre les deux microservices.
+\begin{infobox}
+\textbf{Garantie de cohérence :} si l'appel à \texttt{books-service} échoue, l'emprunt n'est pas
+créé (ou le retour n'est pas enregistré). Les deux opérations sont toujours synchronisées.
+\end{infobox}
 
+% ============================================================
 \section{Docker et Docker Hub}
+% ============================================================
+
+Chaque service est conteneurisé indépendamment avec son propre \texttt{Dockerfile}.
+Les images sont publiées sur Docker Hub et référencées dans les manifests Kubernetes.
 
 \subsection{Books Service}
 
-\begin{verbatim}
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
 docker build -t books-service-local ./services/books-service
 docker tag books-service-local sirinamarwa/books-service:latest
 docker push sirinamarwa/books-service:latest
-\end{verbatim}
+\end{Verbatim}
 
 \subsection{Loans Service}
 
-\begin{verbatim}
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
 docker build -t chaimaaaa/user-loans-service:latest ./services/loans-service
 docker push chaimaaaa/user-loans-service:latest
-\end{verbatim}
+\end{Verbatim}
 
-\section{Lancement local}
+% ============================================================
+\section{Lancement local avec Docker Compose}
+% ============================================================
 
-Pour lancer toute l'application localement :
+Un fichier \texttt{docker-compose.yml} permet de lancer les deux microservices
+et leurs bases de données respectives en une seule commande :
 
-\begin{verbatim}
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
 docker compose up --build
-\end{verbatim}
+\end{Verbatim}
 
-Services exposes :
+Le fichier démarre quatre conteneurs : \texttt{postgres-books} (base \texttt{library}),
+\texttt{postgres-loans} (base \texttt{loansdb}), \texttt{books-service} et \texttt{user-loans-service}.
+Chaque service attend que sa base soit prête avant de démarrer (\texttt{healthcheck}).
 
-\begin{itemize}[leftmargin=*]
-  \item \texttt{books-service} sur \texttt{http://localhost:3001} ;
-  \item \texttt{user-loans-service} sur \texttt{http://localhost:3002} ;
-  \item \texttt{frontend} sur \texttt{http://localhost:5173}.
-\end{itemize}
-
-Tests rapides :
-
-\begin{verbatim}
-curl http://localhost:3001/health
-curl http://localhost:3001/books
-curl http://localhost:3002/health
-curl http://localhost:3002/loans
-\end{verbatim}
-
-\section{Kubernetes}
-
-\subsection{Books Service}
-
-Le dossier \texttt{k8s/base} contient :
-
-\begin{itemize}[leftmargin=*]
-  \item namespace ;
-  \item ConfigMap ;
-  \item Secret ;
-  \item StatefulSet PostgreSQL ;
-  \item Deployment et Service du catalogue ;
-  \item Ingress.
-\end{itemize}
-
-Application :
-
-\begin{verbatim}
-kubectl apply -k k8s/base
-\end{verbatim}
-
-\subsection{Loans Service}
-
-Le dossier \texttt{k8s/loans} contient :
-
-\begin{itemize}[leftmargin=*]
-  \item Deployment ;
-  \item StatefulSet PostgreSQL ;
-  \item PVC ;
-  \item Service ;
-  \item Ingress ;
-  \item Secret ;
-  \item RBAC.
-\end{itemize}
-
-Application :
-
-\begin{verbatim}
-kubectl apply -f k8s/loans/
-\end{verbatim}
-
-\section{Frontend}
-
-L'interface finale a ete realisee en React/Vite.
-
-Fonctionnalites principales de l'UI :
-
-\begin{itemize}[leftmargin=*]
-  \item catalogue avec recherche et filtres ;
-  \item ajout de livre dans une modale ;
-  \item fiches de livres enrichies ;
-  \item onglet \texttt{Mes Emprunts} ;
-  \item sous-onglet \texttt{Emprunter un livre} ;
-  \item sous-onglet \texttt{Historique des emprunts} ;
-  \item parcours guide de creation d'emprunt ;
-  \item detail d'un emprunt avec timeline et retour.
-\end{itemize}
-
-\section{Repartition du travail}
+Services exposés en local :
 
 \begin{center}
-\begin{tabular}{p{7cm} c c}
+\begin{tabular}{p{5cm} p{6cm}}
 \toprule
-Responsabilite & Sirine & Chaimaa \\
+Service & URL \\
 \midrule
-Books Service & X & \\
-Loans Service & & X \\
-PostgreSQL & X & X \\
-Docker / Docker Hub & X & X \\
-Kubernetes & X & X \\
-Ingress & X & X \\
-RBAC / Secrets loans & & X \\
-Communication inter-services & & X \\
-Frontend React final & X & \\
+\texttt{books-service}       & \texttt{http://localhost:3001} \\
+\texttt{user-loans-service}  & \texttt{http://localhost:3002} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\section{Conclusion}
+Le frontend se lance séparément :
 
-Le projet final valide une architecture microservices complete :
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
+cd frontend && npm install && npm run dev
+\end{Verbatim}
+
+Tests rapides :
+
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
+curl http://localhost:3001/books
+curl http://localhost:3002/health
+curl -X POST http://localhost:3002/loans \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"u1","book_id":"book-1"}'
+\end{Verbatim}
+
+% ============================================================
+\section{Frontend React/Vite}
+% ============================================================
+
+L'interface utilisateur est réalisée en React/Vite et intègre les deux microservices.
+
+Fonctionnalités de l'interface :
 
 \begin{itemize}[leftmargin=*]
-  \item deux services independants ;
-  \item deux bases PostgreSQL ;
-  \item une communication REST metier ;
-  \item une execution locale complete avec Docker Compose ;
-  \item des deploiements Kubernetes distincts ;
-  \item une interface web moderne pour la demonstration.
+  \item catalogue de livres avec recherche et filtre par disponibilité ;
+  \item ajout d'un livre via une modale ;
+  \item badges \texttt{Disponible} / \texttt{Déjà prêté} sur chaque fiche ;
+  \item bouton \texttt{Emprunter} / \texttt{Retourner} sur chaque livre ;
+  \item onglet \texttt{Mes Emprunts} connecté à \texttt{user-loans-service} ;
+  \item historique des emprunts par utilisateur ;
+  \item formulaire de création d'emprunt guidé.
 \end{itemize}
 
-Le resultat final permet de gerer un catalogue, creer des emprunts, enregistrer les retours et visualiser l'etat du systeme dans une seule interface.
+Variables d'environnement :
+
+\begin{Verbatim}[breaklines=true,breakanywhere=true]
+VITE_BOOKS_API_URL=http://localhost:3001
+VITE_LOANS_API_URL=http://localhost:3002
+\end{Verbatim}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+Ce projet nous a permis de mettre en pratique l'ensemble des compétences abordées en cours :
+architecture microservices, conteneurisation, orchestration Kubernetes et développement fullstack.
+
+Les principaux acquis techniques sont :
+
+\begin{itemize}[leftmargin=*]
+  \item la conception d'une API REST propre avec gestion des codes d'erreur métier ;
+  \item la mise en place d'une communication inter-services fiable via DNS interne Kubernetes ;
+  \item la sécurisation des credentials avec les Secrets et le principe du moindre privilège RBAC ;
+  \item la garantie de persistance des données avec les PersistentVolumeClaims ;
+  \item la maîtrise du cycle complet : code $\rightarrow$ Docker $\rightarrow$ Docker Hub $\rightarrow$ Kubernetes.
+\end{itemize}
+
+L'application finale permet de gérer un catalogue de livres, créer des emprunts avec
+contrôle de disponibilité, enregistrer les retours et visualiser l'état du système
+dans une interface web unifiée -- le tout déployé sur un cluster Kubernetes local.
 
 \end{document}

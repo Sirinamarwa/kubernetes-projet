@@ -1,7 +1,8 @@
 services:
-  postgres:
+
+  postgres-books:
     image: postgres:16-alpine
-    container_name: library-postgres
+    container_name: library-postgres-books
     environment:
       POSTGRES_DB: library
       POSTGRES_USER: postgres
@@ -16,15 +17,32 @@ services:
       timeout: 5s
       retries: 10
 
+  postgres-loans:
+    image: postgres:16-alpine
+    container_name: library-postgres-loans
+    environment:
+      POSTGRES_DB: loansdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - loans-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d loansdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   books-service:
     build:
       context: ./services/books-service
     container_name: books-service
     depends_on:
-      postgres:
+      postgres-books:
         condition: service_healthy
     environment:
-      DB_HOST: postgres
+      DB_HOST: postgres-books
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: postgres
@@ -32,5 +50,26 @@ services:
     ports:
       - "3001:3001"
 
+  user-loans-service:
+    build:
+      context: ./services/loans-service
+    container_name: user-loans-service
+    depends_on:
+      postgres-loans:
+        condition: service_healthy
+      books-service:
+        condition: service_started
+    environment:
+      PORT: 3000
+      DB_HOST: postgres-loans
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: loansdb
+      BOOK_CATALOG_URL: http://books-service:3001
+    ports:
+      - "3002:3000"
+
 volumes:
   books-postgres-data:
+  loans-postgres-data:
